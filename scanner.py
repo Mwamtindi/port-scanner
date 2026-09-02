@@ -17,7 +17,18 @@ def scan_port(target, port):
             except OSError:
                 service = "Unknown"
 
-            return port, service
+            banner = ""
+
+            try:
+                sock.sendall(b"\r\n")
+                banner = sock.recv(1024).decode(
+                    "utf-8",
+                    errors="ignore"
+                ).strip()
+            except (socket.timeout, socket.error):
+                banner = ""
+
+            return port, service, banner
 
     except socket.error:
         return None
@@ -115,8 +126,11 @@ print("\nOpen Ports")
 print("-" * 35)
 
 if open_ports:
-    for port, service in open_ports:
+    for port, service, banner in open_ports:
         print(f"[+] {port}/tcp OPEN → {service}")
+
+        if banner:
+            print(f"    Banner: {banner}")
 else:
     print("No open ports found.")
 
