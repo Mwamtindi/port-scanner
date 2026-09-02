@@ -1,58 +1,127 @@
 import socket
 import time
-from concurrent.futures import ThreadPoolExecutor
+import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def scan_port(target, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(0.5)
 
-    result = sock.connect_ex((target, port))
-    sock.close()
+    try:
+        result = sock.connect_ex((target, port))
 
-    if result == 0:
-        try:
-            service = socket.getservbyport(port, "tcp")
-        except OSError:
-            service = "Unknown"
+        if result == 0:
+            try:
+                service = socket.getservbyport(port, "tcp")
+            except OSError:
+                service = "Unknown"
 
-        return port, service
+            return port, service
+
+    except socket.error:
+        return None
+
+    finally:
+        sock.close()
 
     return None
 
 
-target = input("Enter target IP or hostname: ")
+# Command-line arguments
+parser = argparse.ArgumentParser(
+    description="Python TCP Port Scanner"
+)
 
-start_port = int(input("Enter starting port: "))
-end_port = int(input("Enter ending port: "))
+parser.add_argument(
+    "--target",
+    required=True,
+    help="Target IP address or hostname"
+)
 
-print(f"\nScanning {target} from port {start_port} to {end_port}...\n")
+parser.add_argument(
+    "--start",
+    type=int,
+    required=True,
+    help="Starting port"
+)
+
+parser.add_argument(
+    "--end",
+    type=int,
+    required=True,
+    help="Ending port"
+)
+
+parser.add_argument(
+    "--threads",
+    type=int,
+    default=100,
+    help="Number of concurrent threads (default: 100)"
+)
+
+args = parser.parse_args()
+
+target = args.target
+start_port = args.start
+end_port = args.end
+threads = args.threads
+
+
+# Input validation
+if start_port < 1 or end_port > 65535:
+    parser.error("Ports must be between 1 and 65535.")
+
+if start_port > end_port:
+    parser.error("Starting port cannot be greater than ending port.")
+
+if threads < 1 or threads > 500:
+    parser.error("Threads must be between 1 and 500.")
+
+
+# Start scan
+print(f"\nScanning {target} from port {start_port} to {end_port}...")
+print(f"Threads: {threads}\n")
 
 start_time = time.time()
 
 open_ports = []
 
-with ThreadPoolExecutor(max_workers=100) as executor:
-    results = executor.map(
-        lambda port: scan_port(target, port),
-        range(start_port, end_port + 1)
-    )
+with ThreadPoolExecutor(max_workers=threads) as executor:
 
-    for result in results:
+    futures = [
+        executor.submit(scan_port, target, port)
+        for port in range(start_port, end_port + 1)
+    ]
+
+    for future in as_completed(futures):
+        result = future.result()
+
         if result:
             open_ports.append(result)
 
+
+# Sort results by port number
+open_ports.sort()
+
+
+# Calculate scan time
 end_time = time.time()
 scan_time = end_time - start_time
 
 
+# Display results
 print("\nOpen Ports")
 print("-" * 35)
 
-for port, service in open_ports:
-    print(f"[+] {port}/tcp OPEN → {service}")
+if open_ports:
+    for port, service in open_ports:
+        print(f"[+] {port}/tcp OPEN → {service}")
+else:
+    print("No open ports found.")
 
 
+# Display summary
 print("\nScan Summary")
 print("-" * 35)
 print(f"Target: {target}")
