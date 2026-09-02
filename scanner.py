@@ -98,6 +98,9 @@ start_time = time.time()
 
 open_ports = []
 
+total_ports = end_port - start_port + 1
+completed = 0
+
 with ThreadPoolExecutor(max_workers=threads) as executor:
 
     futures = [
@@ -107,6 +110,17 @@ with ThreadPoolExecutor(max_workers=threads) as executor:
 
     for future in as_completed(futures):
         result = future.result()
+
+        completed += 1
+
+        if completed % 100 == 0 or completed == total_ports:
+            percentage = (completed / total_ports) * 100
+            print(
+                f"\rProgress: {completed}/{total_ports}"
+                f"({percentage:.0f}%)",
+                end="",
+                flush=True
+            )
 
         if result:
             open_ports.append(result)
