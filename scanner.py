@@ -2,6 +2,7 @@ import socket
 import time
 import argparse
 import csv
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def save_to_csv(filename, results):
@@ -24,6 +25,27 @@ def save_to_csv(filename, results):
                 service,
                 banner
             ])
+
+def save_to_json(filename, target, results, scan_time, total_ports):
+    report = {
+        "target": target,
+        "ports_scanned": total_ports,
+        "open_ports": len(results),
+        "scan_time": round(scan_time, 2),
+        "results": []
+    }
+
+    for port, service, banner in results:
+        report["results"].append({
+            "port": port,
+            "protocol": "tcp",
+            "state": "open",
+            "service": service,
+            "banner": banner
+        })
+
+    with open(filename, "w", encoding="utf-8") as file:
+        json.dump(report, file, indent=4)
 
 def scan_port(target, port, timeout):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -94,7 +116,7 @@ parser.add_argument(
 
 parser.add_argument(
     "--output",
-    help="Save scan results to a CSV file"
+    help="Save scan results to a CSV or JSON file (e.g., scan.csv or scan.json)"
 )
 
 parser.add_argument(
@@ -126,6 +148,13 @@ if threads < 1 or threads > 500:
 
 if timeout <= 0:
     parser.error("Timeout must be greater than 0.")
+
+if output_file:
+    if not (
+        output_file.lower().endswith(".csv")
+        or output_file.lower().endswith(".json")
+    ):
+        parser.error("Output file must end with .csv or .json.")
 
 
 # Start scan
@@ -197,7 +226,18 @@ print(f"Open ports: {len(open_ports)}")
 print(f"Scan time: {scan_time:.2f} seconds")
 
 if output_file:
-    save_to_csv(output_file, open_ports)
+    if output_file.lower().endswith(".csv"):
+        save_to_csv(output_file, open_ports)
+
+    elif output_file.lower().endswith(".json"):
+        save_to_json(
+            output_file,
+            target,
+            open_ports,
+            scan_time,
+            end_port - start_port + 1
+        )
+
     print(f"\nReport saved to: {output_file}")
 
 print("\nScan complete.")
