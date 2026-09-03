@@ -14,16 +14,18 @@ def save_to_csv(filename, results):
             "protocol",
             "state",
             "service",
-            "banner"
+            "banner",
+            "server"
         ])
 
-        for port, service, banner in results:
+        for port, service, banner, server in results:
             writer.writerow([
                 port,
                 "tcp",
                 "open",
                 service,
-                banner
+                banner,
+                server
             ])
 
 def save_to_json(filename, target, results, scan_time, total_ports):
@@ -35,13 +37,14 @@ def save_to_json(filename, target, results, scan_time, total_ports):
         "results": []
     }
 
-    for port, service, banner in results:
+    for port, service, banner, server in results:
         report["results"].append({
             "port": port,
             "protocol": "tcp",
             "state": "open",
             "service": service,
-            "banner": banner
+            "banner": banner,
+            "server": server
         })
 
     with open(filename, "w", encoding="utf-8") as file:
@@ -64,13 +67,22 @@ def detect_http(sock):
         )
 
         if response.startswith("HTTP/"):
-            first_line = response.splitlines()[0]
-            return first_line
+            lines = response.splitlines()
+
+            status = lines[0]
+            server = ""
+
+            for line in lines[1:]:
+                if line.lower().startswith("server:"):
+                    server = line.split(":", 1)[1].strip()
+                    break
+
+            return status, server
 
     except (socket.timeout, socket.error):
         pass
 
-    return ""
+    return "", ""
 
 def scan_port(target, port, timeout):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -86,17 +98,19 @@ def scan_port(target, port, timeout):
                 service = "Unknown"
 
             banner = ""
+            server = ""
 
             try:
-                banner = detect_http(sock)
+                http_status, server = detect_http(sock)
 
-                if banner:
+                if http_status:
                     service = "http"
+                    banner = http_status
 
             except (socket.timeout, socket.error):
-                banner = ""
+                pass
 
-            return port, service, banner
+            return port, service, banner, server
 
     except socket.error:
         return None
@@ -233,13 +247,16 @@ print("\nOpen Ports")
 print("-" * 60)
 
 if open_ports:
-    for port, service, banner in open_ports:
+    for port, service, banner, server in open_ports:
         print(f"[+] {port}/tcp OPEN → {service}")
 
         if banner:
             print(f"    Banner: {banner}")
         else:
             print("    Banner: -")
+
+        if server:
+            print(f"    Server: {server}")
 else:
     print("No open ports found.")
 
