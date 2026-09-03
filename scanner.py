@@ -87,20 +87,14 @@ def scan_port(target, port, timeout):
 
             banner = ""
 
-            if port in [80, 443, 8000, 8080, 8081, 8888]:
+            try:
                 banner = detect_http(sock)
 
                 if banner:
                     service = "http"
-            else:
-                try:
-                    sock.sendall(b"\r\n")
-                    banner = sock.recv(1024).decode(
-                        "utf-8",
-                        errors="ignore"
-                    ).strip()
-                except (socket.timeout, socket.error):
-                    banner = ""
+
+            except (socket.timeout, socket.error):
+                banner = ""
 
             return port, service, banner
 
