@@ -1,8 +1,29 @@
 import socket
 import time
 import argparse
+import csv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+def save_to_csv(filename, results):
+    with open(filename, "w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+
+        writer.writerow([
+            "port",
+            "protocol",
+            "state",
+            "service",
+            "banner"
+        ])
+
+        for port, service, banner in results:
+            writer.writerow([
+                port,
+                "tcp",
+                "open",
+                service,
+                banner
+            ])
 
 def scan_port(target, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -71,12 +92,18 @@ parser.add_argument(
     help="Number of concurrent threads (default: 100)"
 )
 
+parser.add_argument(
+    "--output",
+    help="Save scan results to a CSV file"
+)
+
 args = parser.parse_args()
 
 target = args.target
 start_port = args.start
 end_port = args.end
 threads = args.threads
+output_file = args.output
 
 
 # Input validation
@@ -116,7 +143,7 @@ with ThreadPoolExecutor(max_workers=threads) as executor:
         if completed % 100 == 0 or completed == total_ports:
             percentage = (completed / total_ports) * 100
             print(
-                f"\rProgress: {completed}/{total_ports}"
+                f"\rProgress: {completed}/{total_ports} "
                 f"({percentage:.0f}%)",
                 end="",
                 flush=True
@@ -156,5 +183,9 @@ print(f"Target: {target}")
 print(f"Ports scanned: {end_port - start_port + 1}")
 print(f"Open ports: {len(open_ports)}")
 print(f"Scan time: {scan_time:.2f} seconds")
+
+if output_file:
+    save_to_csv(output_file, open_ports)
+    print(f"\nReport saved to: {output_file}")
 
 print("\nScan complete.")
