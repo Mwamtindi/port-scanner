@@ -47,6 +47,31 @@ def save_to_json(filename, target, results, scan_time, total_ports):
     with open(filename, "w", encoding="utf-8") as file:
         json.dump(report, file, indent=4)
 
+def detect_http(sock):
+    try:
+        request = (
+            "HEAD / HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+        )
+
+        sock.sendall(request.encode())
+
+        response = sock.recv(1024).decode(
+            "utf-8",
+            errors="ignore"
+        )
+
+        if response.startswith("HTTP/"):
+            first_line = response.splitlines()[0]
+            return first_line
+
+    except (socket.timeout, socket.error):
+        pass
+
+    return ""
+
 def scan_port(target, port, timeout):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(timeout)
@@ -62,14 +87,20 @@ def scan_port(target, port, timeout):
 
             banner = ""
 
-            try:
-                sock.sendall(b"\r\n")
-                banner = sock.recv(1024).decode(
-                    "utf-8",
-                    errors="ignore"
-                ).strip()
-            except (socket.timeout, socket.error):
-                banner = ""
+            if port in [80, 443, 8000, 8080, 8081, 8888]:
+                banner = detect_http(sock)
+
+                if banner:
+                    service = "http"
+            else:
+                try:
+                    sock.sendall(b"\r\n")
+                    banner = sock.recv(1024).decode(
+                        "utf-8",
+                        errors="ignore"
+                    ).strip()
+                except (socket.timeout, socket.error):
+                    banner = ""
 
             return port, service, banner
 
@@ -205,7 +236,7 @@ scan_time = end_time - start_time
 
 # Display results
 print("\nOpen Ports")
-print("-" * 35)
+print("-" * 60)
 
 if open_ports:
     for port, service, banner in open_ports:
@@ -213,6 +244,8 @@ if open_ports:
 
         if banner:
             print(f"    Banner: {banner}")
+        else:
+            print("    Banner: -")
 else:
     print("No open ports found.")
 
