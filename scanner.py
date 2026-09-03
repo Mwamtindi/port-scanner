@@ -25,9 +25,9 @@ def save_to_csv(filename, results):
                 banner
             ])
 
-def scan_port(target, port):
+def scan_port(target, port, timeout):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(0.5)
+    sock.settimeout(timeout)
 
     try:
         result = sock.connect_ex((target, port))
@@ -97,6 +97,13 @@ parser.add_argument(
     help="Save scan results to a CSV file"
 )
 
+parser.add_argument(
+    "--timeout",
+    type=float,
+    default=0.5,
+    help="Socket timeout in seconds (default: 0.5)"
+)
+
 args = parser.parse_args()
 
 target = args.target
@@ -104,6 +111,7 @@ start_port = args.start
 end_port = args.end
 threads = args.threads
 output_file = args.output
+timeout = args.timeout
 
 
 # Input validation
@@ -116,10 +124,14 @@ if start_port > end_port:
 if threads < 1 or threads > 500:
     parser.error("Threads must be between 1 and 500.")
 
+if timeout <= 0:
+    parser.error("Timeout must be greater than 0.")
+
 
 # Start scan
 print(f"\nScanning {target} from port {start_port} to {end_port}...")
 print(f"Threads: {threads}\n")
+print(f"Timeout: {timeout} seconds\n")
 
 start_time = time.time()
 
@@ -131,7 +143,7 @@ completed = 0
 with ThreadPoolExecutor(max_workers=threads) as executor:
 
     futures = [
-        executor.submit(scan_port, target, port)
+        executor.submit(scan_port, target, port, timeout)
         for port in range(start_port, end_port + 1)
     ]
 
