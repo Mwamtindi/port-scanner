@@ -3,6 +3,7 @@ import time
 import argparse
 import csv
 import json
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def save_to_csv(filename, results):
@@ -28,9 +29,27 @@ def save_to_csv(filename, results):
                 server
             ])
 
-def save_to_json(filename, target, results, scan_time, total_ports):
+def save_to_json(
+    filename,
+    target,
+    results,
+    scan_time,
+    total_ports,
+    scan_start,
+    scan_end,
+    start_port,
+    end_port,
+    threads,
+    timeout
+):
     report = {
         "target": target,
+        "scan_start": scan_start,
+        "scan_end": scan_end,
+        "start_port": start_port,
+        "end_port": end_port,
+        "threads": threads,
+        "timeout": timeout,
         "ports_scanned": total_ports,
         "open_ports": len(results),
         "scan_time": round(scan_time, 2),
@@ -201,6 +220,7 @@ print(f"\nScanning {target} from port {start_port} to {end_port}...")
 print(f"Threads: {threads}\n")
 print(f"Timeout: {timeout} seconds\n")
 
+scan_start = datetime.now().isoformat()
 start_time = time.time()
 
 open_ports = []
@@ -238,6 +258,7 @@ open_ports.sort()
 
 
 # Calculate scan time
+scan_end = datetime.now().isoformat()
 end_time = time.time()
 scan_time = end_time - start_time
 
@@ -279,7 +300,13 @@ if output_file:
             target,
             open_ports,
             scan_time,
-            end_port - start_port + 1
+            end_port - start_port + 1,
+            scan_start,
+            scan_end,
+            start_port,
+            end_port,
+            threads,
+            timeout
         )
 
     print(f"\nReport saved to: {output_file}")
