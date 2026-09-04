@@ -147,21 +147,18 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument(
     "--target",
-    required=True,
     help="Target IP address or hostname"
 )
 
 parser.add_argument(
     "--start",
     type=int,
-    required=True,
     help="Starting port"
 )
 
 parser.add_argument(
     "--end",
     type=int,
-    required=True,
     help="Ending port"
 )
 
@@ -186,9 +183,21 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-target = args.target
-start_port = args.start
-end_port = args.end
+# Interactive mode
+if not args.target:
+    target = input("Enter target IP or hostname: ").strip()
+else:
+    target = args.target
+
+if args.start is None:
+    start_port = int(input("Enter starting port: "))
+else:
+    start_port = args.start
+
+if args.end is None:
+    end_port = int(input("Enter ending port: "))
+else:
+    end_port = args.end
 threads = args.threads
 output_file = args.output
 timeout = args.timeout
